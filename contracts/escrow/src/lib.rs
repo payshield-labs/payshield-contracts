@@ -33,10 +33,10 @@ impl EscrowContract {
     /// # Returns
     /// * `u64` - The unique job ID for this escrow
     pub fn create_escrow(
-        env: Env,
-        client: Address,
-        amount: i128,
-        token: Address,
+        _env: Env,
+        _client: Address,
+        _amount: i128,
+        _token: Address,
     ) -> u64 {
         // TODO: Implement escrow creation
         // 1. Authenticate client (client.require_auth())
@@ -57,7 +57,7 @@ impl EscrowContract {
     /// # Arguments
     /// * `worker` - The wallet address of the worker accepting the job
     /// * `job_id` - The ID of the job to accept
-    pub fn accept_job(env: Env, worker: Address, job_id: u64) {
+    pub fn accept_job(_env: Env, _worker: Address, _job_id: u64) {
         // TODO: Implement job acceptance
         // 1. Authenticate worker (worker.require_auth())
         // 2. Load escrow state from storage
@@ -78,7 +78,7 @@ impl EscrowContract {
     /// # Arguments
     /// * `client` - The wallet address of the client (must match job creator)
     /// * `job_id` - The ID of the job to release payment for
-    pub fn release_payment(env: Env, client: Address, job_id: u64) {
+    pub fn release_payment(_env: Env, _client: Address, _job_id: u64) {
         // TODO: Implement payment release
         // 1. Authenticate client (client.require_auth())
         // 2. Load escrow state from storage
@@ -99,9 +99,50 @@ impl EscrowContract {
     /// # Arguments
     /// * `client` - The wallet address of the client (must match job creator)
     /// * `job_id` - The ID of the job to cancel
-    pub fn cancel_escrow(env: Env, client: Address, job_id: u64) {
+    pub fn cancel_escrow(_env: Env, _client: Address, _job_id: u64) {
         // TODO: Implement escrow cancellation
         // 1. Authenticate client (client.require_auth())
         // 2. Load escrow state from storage
         // 3. Validate escrow status is Open (not yet accepted)
-        // 4. Validate ca
+        // 4. Validate caller is the original client
+        // 5. Transfer USDC from contract back to client
+        // 6. Update status to Cancelled
+        // 7. Save updated state to storage
+        // 8. Emit EscrowCancelled event
+        todo!()
+    }
+
+    /// Either party flags a dispute for resolution.
+    ///
+    /// Marks the escrow as `Disputed` so off-chain or
+    /// arbitration logic can take over resolution.
+    ///
+    /// # Arguments
+    /// * `caller` - The wallet address of the client or worker raising the dispute
+    /// * `job_id` - The ID of the job being disputed
+    pub fn dispute_escrow(_env: Env, _caller: Address, _job_id: u64) {
+        // TODO: Implement dispute flagging
+        // 1. Authenticate caller (caller.require_auth())
+        // 2. Load escrow state from storage
+        // 3. Validate escrow status is InProgress
+        // 4. Validate caller is either the client or the assigned worker
+        // 5. Update status to Disputed
+        // 6. Save updated state to storage
+        // 7. Emit EscrowDisputed event
+        todo!()
+    }
+
+    /// Read the current state of an escrow.
+    ///
+    /// # Arguments
+    /// * `job_id` - The ID of the job to look up
+    ///
+    /// # Returns
+    /// * `EscrowState` - The full on-chain state of the escrow
+    pub fn get_escrow(_env: Env, _job_id: u64) -> EscrowState {
+        // TODO: Implement escrow lookup
+        // 1. Load escrow state from storage
+        // 2. Return the state (panic if not found)
+        todo!()
+    }
+}
