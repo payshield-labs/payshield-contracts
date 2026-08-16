@@ -19,10 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # - name: Set up Rust
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
+      #     profile: minimal
+      #     override: true
+
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: "1.94.0"
+          target: wasm32-unknown-unknown
           profile: minimal
           override: true
 

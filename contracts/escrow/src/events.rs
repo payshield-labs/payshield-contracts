@@ -1,43 +1,40 @@
-#![allow(unused)]
+#![allow(unused, deprecated)]
 
-use soroban_sdk::{symbol_short, Address, Env};
+use soroban_sdk::{contractevent, Address, Env};
 
 /// Emitted when a new escrow job is created
-pub fn escrow_created(env: &Env, job_id: u64, client: &Address, amount: i128) {
-    env.events().publish(
-        (symbol_short!("CREATED"), job_id),
-        (client.clone(), amount),
-    );
+#[contractevent]
+pub struct EscrowCreated {
+    pub job_id: u64,
+    pub client: Address,
+    pub amount: i128,
 }
 
 /// Emitted when a worker accepts a job
-pub fn job_accepted(env: &Env, job_id: u64, worker: &Address) {
-    env.events().publish(
-        (symbol_short!("ACCEPTED"), job_id),
-        worker.clone(),
-    );
+#[contractevent]
+pub struct JobAccepted {
+    pub job_id: u64,
+    pub worker: Address,
 }
 
 /// Emitted when payment is released to the worker
-pub fn payment_released(env: &Env, job_id: u64, worker: &Address, amount: i128) {
-    env.events().publish(
-        (symbol_short!("RELEASED"), job_id),
-        (worker.clone(), amount),
-    );
+#[contractevent]
+pub struct PaymentReleased {
+    pub job_id: u64,
+    pub worker: Address,
+    pub amount: i128,
 }
 
 /// Emitted when an escrow is cancelled by the client
-pub fn escrow_cancelled(env: &Env, job_id: u64, client: &Address) {
-    env.events().publish(
-        (symbol_short!("CANCELD"), job_id),
-        client.clone(),
-    );
+#[contractevent]
+pub struct EscrowCancelled {
+    pub job_id: u64,
+    pub client: Address,
 }
 
 /// Emitted when a dispute is raised on an escrow
-pub fn escrow_disputed(env: &Env, job_id: u64, caller: &Address) {
-    env.events().publish(
-        (symbol_short!("DISPUTE"), job_id),
-        caller.clone(),
-    );
+#[contractevent]
+pub struct EscrowDisputed {
+    pub job_id: u64,
+    pub caller: Address,
 }
