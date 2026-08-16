@@ -32,9 +32,7 @@ pub fn load_escrow(env: &Env, job_id: u64) -> EscrowState {
 
 /// Check whether an escrow exists for a given job ID
 pub fn escrow_exists(env: &Env, job_id: u64) -> bool {
-    env.storage()
-        .persistent()
-        .has(&StorageKey::Escrow(job_id))
+    env.storage().persistent().has(&StorageKey::Escrow(job_id))
 }
 
 /// Get the current job counter and increment it
@@ -49,9 +47,7 @@ pub fn next_job_id(env: &Env) -> u64 {
 
     let next = current + 1;
 
-    env.storage()
-        .instance()
-        .set(&StorageKey::JobCounter, &next);
+    env.storage().instance().set(&StorageKey::JobCounter, &next);
 
     next
 }

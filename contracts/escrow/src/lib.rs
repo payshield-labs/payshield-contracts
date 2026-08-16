@@ -32,12 +32,7 @@ impl EscrowContract {
     ///
     /// # Returns
     /// * `u64` - The unique job ID for this escrow
-    pub fn create_escrow(
-        _env: Env,
-        _client: Address,
-        _amount: i128,
-        _token: Address,
-    ) -> u64 {
+    pub fn create_escrow(_env: Env, _client: Address, _amount: i128, _token: Address) -> u64 {
         // TODO: Implement escrow creation
         // 1. Authenticate client (client.require_auth())
         // 2. Validate amount > 0
