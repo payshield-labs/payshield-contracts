@@ -2,6 +2,7 @@
 
 use soroban_sdk::{contracttype, Env};
 
+use crate::errors::Error;
 use crate::types::EscrowState;
 
 /// Storage key types for the contract
@@ -22,12 +23,12 @@ pub fn save_escrow(env: &Env, escrow: &EscrowState) {
 
 /// Load an escrow state from contract storage
 ///
-/// Panics if the job ID does not exist
-pub fn load_escrow(env: &Env, job_id: u64) -> EscrowState {
+/// Returns `Error::EscrowNotFound` if the job ID does not exist
+pub fn load_escrow(env: &Env, job_id: u64) -> Result<EscrowState, Error> {
     env.storage()
         .persistent()
         .get(&StorageKey::Escrow(job_id))
-        .expect("Escrow not found for given job ID")
+        .ok_or(Error::EscrowNotFound)
 }
 
 /// Check whether an escrow exists for a given job ID

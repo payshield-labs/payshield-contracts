@@ -87,12 +87,14 @@ payshield-contracts/
 
 ### Prerequisites
 
-- Rust toolchain (`rustup`)
+- Rust toolchain managed by `rustup` (the required version and WASM target are pinned in `rust-toolchain.toml`)
 - Soroban CLI
 
 ```bash
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
+rustup component add rustfmt clippy
 
 # Install Soroban CLI
 cargo install --locked soroban-cli
@@ -105,12 +107,17 @@ cargo install --locked soroban-cli
 git clone https://github.com/payshield-labs/payshield-contracts.git
 cd payshield-contracts
 
-# Build the contracts
-cargo build
+# Build the contracts from the repository root
+cargo build --manifest-path contracts/escrow/Cargo.toml
 
 # Run tests
-cargo test
+cargo test --manifest-path contracts/escrow/Cargo.toml
 ```
+
+If your shell prompt already shows `/workspaces/payshield-contracts`, you are
+already at the repository root and should not run `cd payshield-contracts`.
+If `cargo` is not found after installing Rust, run `. "$HOME/.cargo/env"` or
+open a new terminal.
 
 ### Deploy to Testnet
 

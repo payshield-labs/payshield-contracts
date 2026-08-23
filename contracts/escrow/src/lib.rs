@@ -1,13 +1,17 @@
 #![no_std]
 
+mod errors;
 mod escrow;
 mod events;
 mod storage;
 mod types;
 
-use soroban_sdk::{contract, contractimpl, Address, Env};
+use soroban_sdk::{contract, contractimpl, token, Address, Env};
 
-use crate::types::EscrowState;
+use crate::errors::Error;
+use crate::events::{EscrowCancelled, EscrowCreated, EscrowDisputed, JobAccepted, PaymentReleased};
+use crate::storage::{load_escrow, next_job_id, save_escrow};
+use crate::types::{EscrowState, JobStatus};
 
 /// PayShield Escrow Contract
 ///
@@ -32,16 +36,43 @@ impl EscrowContract {
     ///
     /// # Returns
     /// * `u64` - The unique job ID for this escrow
-    pub fn create_escrow(_env: Env, _client: Address, _amount: i128, _token: Address) -> u64 {
-        // TODO: Implement escrow creation
-        // 1. Authenticate client (client.require_auth())
-        // 2. Validate amount > 0
-        // 3. Generate a unique job ID
-        // 4. Transfer USDC from client to contract
-        // 5. Store escrow state in contract storage
-        // 6. Emit EscrowCreated event
-        // 7. Return the job ID
-        todo!()
+    pub fn create_escrow(
+        env: Env,
+        client: Address,
+        amount: i128,
+        token: Address,
+    ) -> Result<u64, Error> {
+        client.require_auth();
+
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+
+        let job_id = next_job_id(&env);
+
+        // Pull the USDC from the client into this contract.
+        let token_client = token::Client::new(&env, &token);
+        token_client.transfer(&client, env.current_contract_address(), &amount);
+
+        let state = EscrowState {
+            job_id,
+            client: client.clone(),
+            worker: None,
+            token,
+            amount,
+            status: JobStatus::Open,
+            created_at: env.ledger().timestamp(),
+        };
+        save_escrow(&env, &state);
+
+        EscrowCreated {
+            job_id,
+            client,
+            amount,
+        }
+        .publish(&env);
+
+        Ok(job_id)
     }
 
     /// Worker accepts an open job.
@@ -52,16 +83,22 @@ impl EscrowContract {
     /// # Arguments
     /// * `worker` - The wallet address of the worker accepting the job
     /// * `job_id` - The ID of the job to accept
-    pub fn accept_job(_env: Env, _worker: Address, _job_id: u64) {
-        // TODO: Implement job acceptance
-        // 1. Authenticate worker (worker.require_auth())
-        // 2. Load escrow state from storage
-        // 3. Validate escrow status is Open
-        // 4. Assign worker address to escrow
-        // 5. Update status to InProgress
-        // 6. Save updated state to storage
-        // 7. Emit JobAccepted event
-        todo!()
+    pub fn accept_job(env: Env, worker: Address, job_id: u64) -> Result<(), Error> {
+        worker.require_auth();
+
+        let mut state = load_escrow(&env, job_id)?;
+
+        if state.status != JobStatus::Open {
+            return Err(Error::EscrowNotOpen);
+        }
+
+        state.worker = Some(worker.clone());
+        state.status = JobStatus::InProgress;
+        save_escrow(&env, &state);
+
+        JobAccepted { job_id, worker }.publish(&env);
+
+        Ok(())
     }
 
     /// Client approves work and releases USDC to worker.
@@ -73,17 +110,36 @@ impl EscrowContract {
     /// # Arguments
     /// * `client` - The wallet address of the client (must match job creator)
     /// * `job_id` - The ID of the job to release payment for
-    pub fn release_payment(_env: Env, _client: Address, _job_id: u64) {
-        // TODO: Implement payment release
-        // 1. Authenticate client (client.require_auth())
-        // 2. Load escrow state from storage
-        // 3. Validate escrow status is InProgress
-        // 4. Validate caller is the original client
-        // 5. Transfer USDC from contract to worker wallet
-        // 6. Update status to Completed
-        // 7. Save updated state to storage
-        // 8. Emit PaymentReleased event
-        todo!()
+    pub fn release_payment(env: Env, client: Address, job_id: u64) -> Result<(), Error> {
+        client.require_auth();
+
+        let mut state = load_escrow(&env, job_id)?;
+
+        if state.client != client {
+            return Err(Error::NotClient);
+        }
+        if state.status != JobStatus::InProgress {
+            return Err(Error::EscrowNotInProgress);
+        }
+
+        // Worker is guaranteed to be set once status is InProgress
+        // (accept_job is the only path that sets it).
+        let worker = state.worker.clone().ok_or(Error::EscrowNotInProgress)?;
+
+        let token_client = token::Client::new(&env, &state.token);
+        token_client.transfer(&env.current_contract_address(), &worker, &state.amount);
+
+        state.status = JobStatus::Completed;
+        save_escrow(&env, &state);
+
+        PaymentReleased {
+            job_id,
+            worker,
+            amount: state.amount,
+        }
+        .publish(&env);
+
+        Ok(())
     }
 
     /// Client cancels escrow and reclaims USDC.
@@ -94,17 +150,27 @@ impl EscrowContract {
     /// # Arguments
     /// * `client` - The wallet address of the client (must match job creator)
     /// * `job_id` - The ID of the job to cancel
-    pub fn cancel_escrow(_env: Env, _client: Address, _job_id: u64) {
-        // TODO: Implement escrow cancellation
-        // 1. Authenticate client (client.require_auth())
-        // 2. Load escrow state from storage
-        // 3. Validate escrow status is Open (not yet accepted)
-        // 4. Validate caller is the original client
-        // 5. Transfer USDC from contract back to client
-        // 6. Update status to Cancelled
-        // 7. Save updated state to storage
-        // 8. Emit EscrowCancelled event
-        todo!()
+    pub fn cancel_escrow(env: Env, client: Address, job_id: u64) -> Result<(), Error> {
+        client.require_auth();
+
+        let mut state = load_escrow(&env, job_id)?;
+
+        if state.client != client {
+            return Err(Error::NotClient);
+        }
+        if state.status != JobStatus::Open {
+            return Err(Error::EscrowNotOpen);
+        }
+
+        let token_client = token::Client::new(&env, &state.token);
+        token_client.transfer(&env.current_contract_address(), &client, &state.amount);
+
+        state.status = JobStatus::Cancelled;
+        save_escrow(&env, &state);
+
+        EscrowCancelled { job_id, client }.publish(&env);
+
+        Ok(())
     }
 
     /// Either party flags a dispute for resolution.
@@ -115,16 +181,27 @@ impl EscrowContract {
     /// # Arguments
     /// * `caller` - The wallet address of the client or worker raising the dispute
     /// * `job_id` - The ID of the job being disputed
-    pub fn dispute_escrow(_env: Env, _caller: Address, _job_id: u64) {
-        // TODO: Implement dispute flagging
-        // 1. Authenticate caller (caller.require_auth())
-        // 2. Load escrow state from storage
-        // 3. Validate escrow status is InProgress
-        // 4. Validate caller is either the client or the assigned worker
-        // 5. Update status to Disputed
-        // 6. Save updated state to storage
-        // 7. Emit EscrowDisputed event
-        todo!()
+    pub fn dispute_escrow(env: Env, caller: Address, job_id: u64) -> Result<(), Error> {
+        caller.require_auth();
+
+        let mut state = load_escrow(&env, job_id)?;
+
+        if state.status != JobStatus::InProgress {
+            return Err(Error::EscrowNotInProgress);
+        }
+
+        let is_client = state.client == caller;
+        let is_worker = state.worker.as_ref() == Some(&caller);
+        if !is_client && !is_worker {
+            return Err(Error::NotParty);
+        }
+
+        state.status = JobStatus::Disputed;
+        save_escrow(&env, &state);
+
+        EscrowDisputed { job_id, caller }.publish(&env);
+
+        Ok(())
     }
 
     /// Read the current state of an escrow.
@@ -134,10 +211,10 @@ impl EscrowContract {
     ///
     /// # Returns
     /// * `EscrowState` - The full on-chain state of the escrow
-    pub fn get_escrow(_env: Env, _job_id: u64) -> EscrowState {
-        // TODO: Implement escrow lookup
-        // 1. Load escrow state from storage
-        // 2. Return the state (panic if not found)
-        todo!()
+    pub fn get_escrow(env: Env, job_id: u64) -> Result<EscrowState, Error> {
+        load_escrow(&env, job_id)
     }
 }
+
+#[cfg(test)]
+mod test;

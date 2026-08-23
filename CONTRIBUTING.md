@@ -43,7 +43,16 @@ git checkout -b feature/escrow-logic
 
 ### Prerequisites
 
-- Install Rust via `rustup`
+- Install Rust via `rustup`. The repository pins the required toolchain and
+  `wasm32-unknown-unknown` target in `rust-toolchain.toml`.
+
+After installation, load Cargo into the current shell:
+
+```bash
+. "$HOME/.cargo/env"
+rustup component add rustfmt clippy
+```
+
 - Install Soroban CLI:
 
 ```bash
@@ -55,12 +64,16 @@ cargo install --locked soroban-cli
 From the root of the repository, run:
 
 ```bash
-cd contracts/escrow
-cargo build
-cargo test
+cargo build --manifest-path contracts/escrow/Cargo.toml
+cargo test --manifest-path contracts/escrow/Cargo.toml
 ```
 
-If you want to target the manifest explicitly from root:
+The same commands also work from the `contracts/escrow` directory without the
+`--manifest-path` option. If your shell prompt already shows the repository
+root, do not run `cd payshield-contracts`; that would look for a nested
+directory with the same name.
+
+To target the manifest explicitly from another directory:
 
 ```bash
 cargo build --manifest-path contracts/escrow/Cargo.toml

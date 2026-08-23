@@ -20,7 +20,7 @@ pub enum JobStatus {
 
 /// Full on-chain state of a single escrow job
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EscrowState {
     /// Unique job identifier
     pub job_id: u64,
